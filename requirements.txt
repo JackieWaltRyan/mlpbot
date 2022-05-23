@@ -1,0 +1,9 @@
+discord-components
+discord
+pymongo
+dnspython
+pytz
+requests
+websockets
+PyNaCl
+beautifulsoup4
