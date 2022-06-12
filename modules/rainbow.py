@@ -26,24 +26,33 @@ class Rainbow(Cog):
     async def messages(self, name, value):
         try:
             for uid in [x for x in SET["Уведомления"].values()]:
-                await self.BOT.get_user(uid).send(embed=Embed(
-                    title="Сообщение!", color=0x008000).add_field(name=name, value=value))
+                try:
+                    await self.BOT.get_user(uid).send(embed=Embed(
+                        title="Сообщение!", color=0x008000).add_field(name=name, value=value))
+                except Exception:
+                    pass
         except Exception:
             print(format_exc())
 
     async def alerts(self, name, value):
         try:
             for uid in [x for x in SET["Уведомления"].values()]:
-                await self.BOT.get_user(uid).send(embed=Embed(
-                    title="Уведомление!", color=0xFFA500).add_field(name=name, value=value))
+                try:
+                    await self.BOT.get_user(uid).send(embed=Embed(
+                        title="Уведомление!", color=0xFFA500).add_field(name=name, value=value))
+                except Exception:
+                    pass
         except Exception:
             print(format_exc())
 
     async def errors(self, name, value, reset=0):
         try:
             for uid in [x for x in SET["Уведомления"].values()]:
-                await self.BOT.get_user(uid).send(embed=Embed(
-                    title="Ошибка!", color=0xFF0000).add_field(name=name, value=value))
+                try:
+                    await self.BOT.get_user(uid).send(embed=Embed(
+                        title="Ошибка!", color=0xFF0000).add_field(name=name, value=value))
+                except Exception:
+                    pass
             if reset == 1:
                 execl(sys.executable, "python", "bot.py", *sys.argv[1:])
         except Exception:

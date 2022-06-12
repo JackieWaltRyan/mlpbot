@@ -25,24 +25,33 @@ class Game(Cog):
     async def messages(self, name, value):
         try:
             for uid in [x for x in SET["Уведомления"].values()]:
-                await self.BOT.get_user(uid).send(embed=Embed(
-                    title="Сообщение!", color=0x008000).add_field(name=name, value=value))
+                try:
+                    await self.BOT.get_user(uid).send(embed=Embed(
+                        title="Сообщение!", color=0x008000).add_field(name=name, value=value))
+                except Exception:
+                    pass
         except Exception:
             print(format_exc())
 
     async def alerts(self, name, value):
         try:
             for uid in [x for x in SET["Уведомления"].values()]:
-                await self.BOT.get_user(uid).send(embed=Embed(
-                    title="Уведомление!", color=0xFFA500).add_field(name=name, value=value))
+                try:
+                    await self.BOT.get_user(uid).send(embed=Embed(
+                        title="Уведомление!", color=0xFFA500).add_field(name=name, value=value))
+                except Exception:
+                    pass
         except Exception:
             print(format_exc())
 
     async def errors(self, name, value, reset=0):
         try:
             for uid in [x for x in SET["Уведомления"].values()]:
-                await self.BOT.get_user(uid).send(embed=Embed(
-                    title="Ошибка!", color=0xFF0000).add_field(name=name, value=value))
+                try:
+                    await self.BOT.get_user(uid).send(embed=Embed(
+                        title="Ошибка!", color=0xFF0000).add_field(name=name, value=value))
+                except Exception:
+                    pass
             if reset == 1:
                 execl(sys.executable, "python", "bot.py", *sys.argv[1:])
         except Exception:
@@ -105,8 +114,8 @@ class Game(Cog):
     async def on_button_click(self, interaction):
         try:
             if interaction.component.label == "Начать новую игру":
-                user = DB.server.users.find_one({"_id": interaction.user.id})
-                if user["Страница"] == "p0":
+                user1 = DB.server.users.find_one({"_id": interaction.user.id})
+                if user1["Страница"] == "p0":
                     await self.pages(interaction, "p1")
                 else:
                     await interaction.send(
@@ -117,9 +126,9 @@ class Game(Cog):
             await self.errors(f"Кнопка {interaction.component.label}:", format_exc())
         try:
             if interaction.component.label == "Продолжить игру":
-                user = DB.server.users.find_one({"_id": interaction.user.id})
-                if user["Страница"] != "p0":
-                    await self.pages(interaction, user["Страница"])
+                user2 = DB.server.users.find_one({"_id": interaction.user.id})
+                if user2["Страница"] != "p0":
+                    await self.pages(interaction, user2["Страница"])
                 else:
                     await interaction.send(f"У вас нет сохраненной игры! Хотите начать новую?",
                                            components=[Button(label="Начать новую игру", style=ButtonStyle.green)])
@@ -128,18 +137,18 @@ class Game(Cog):
         try:
             if interaction.component.label == "Статистика":
                 users1 = DB.server.users.find()
-                for user1 in users1:
+                for user3 in users1:
                     try:
-                        old = set(user1["Концовки"])
+                        old = set(user3["Концовки"])
                         new = list(old)
-                        DB.server.users.update_one({"_id": user1["_id"]}, {"$set": {"Концовки": new}})
+                        DB.server.users.update_one({"_id": user3["_id"]}, {"$set": {"Концовки": new}})
                     except Exception:
                         pass
                 sts = []
                 users2 = DB.server.users.find().sort("Концовки", DESCENDING)
-                for user2 in users2:
-                    if len(user2["Концовки"]) != 0:
-                        sts.append(f"<@{user2['_id']}>: Пройдено {len(user2['Концовки'])} из 19 концовок.")
+                for user4 in users2:
+                    if len(user4["Концовки"]) != 0:
+                        sts.append(f"<@{user4['_id']}>: Пройдено {len(user4['Концовки'])} из 19 концовок.")
                 e = Embed(title="Статистика прохождения:", color=interaction.user.color,
                           description="\n\n".join([x for x in sts]))
                 e.set_footer(text=SET["Футер"]["Текст"], icon_url=SET["Футер"]["Ссылка"])

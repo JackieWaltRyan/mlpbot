@@ -13,8 +13,8 @@ from requests import get
 
 from bot import DB, SET
 
-CHANNEL1 = DB.server.channels.find_one({"Название": "🦄арты"})["_id"]
-CHANNEL2 = DB.server.channels.find_one({"Название": "🦄тёмные_арты"})["_id"]
+ARTS = DB.server.channels.find_one({"Название": "🦄арты"})["_id"]
+DARTS = DB.server.channels.find_one({"Название": "🦄тёмные_арты"})["_id"]
 
 
 class Arts(Cog):
@@ -32,24 +32,33 @@ class Arts(Cog):
     async def messages(self, name, value):
         try:
             for uid in [x for x in SET["Уведомления"].values()]:
-                await self.BOT.get_user(uid).send(embed=Embed(
-                    title="Сообщение!", color=0x008000).add_field(name=name, value=value))
+                try:
+                    await self.BOT.get_user(uid).send(embed=Embed(
+                        title="Сообщение!", color=0x008000).add_field(name=name, value=value))
+                except Exception:
+                    pass
         except Exception:
             print(format_exc())
 
     async def alerts(self, name, value):
         try:
             for uid in [x for x in SET["Уведомления"].values()]:
-                await self.BOT.get_user(uid).send(embed=Embed(
-                    title="Уведомление!", color=0xFFA500).add_field(name=name, value=value))
+                try:
+                    await self.BOT.get_user(uid).send(embed=Embed(
+                        title="Уведомление!", color=0xFFA500).add_field(name=name, value=value))
+                except Exception:
+                    pass
         except Exception:
             print(format_exc())
 
     async def errors(self, name, value, reset=0):
         try:
             for uid in [x for x in SET["Уведомления"].values()]:
-                await self.BOT.get_user(uid).send(embed=Embed(
-                    title="Ошибка!", color=0xFF0000).add_field(name=name, value=value))
+                try:
+                    await self.BOT.get_user(uid).send(embed=Embed(
+                        title="Ошибка!", color=0xFF0000).add_field(name=name, value=value))
+                except Exception:
+                    pass
             if reset == 1:
                 execl(sys.executable, "python", "bot.py", *sys.argv[1:])
         except Exception:
@@ -65,16 +74,16 @@ class Arts(Cog):
                       ("location", "eu"), ("device_type", "mobile"))
             rget = get("https://app.zenscrape.com/api/v1/get", headers=choice(headers), params=params).content
             url = "//4pda.to/forum/dl/post/"
-            counts = len(findall(rf"{url}(\d*)/(?:[_\-]*[\w]+[_\-]+){{2,}}[\w]+[(\d+)%]*\.(?:jpg|png|gif|jpeg)",
+            counts = len(findall(rf"{url}(\d*)/(?:[_\-]*\w+[_\-]+){{2,}}\w+[(\d+)%]*\.(?:jpg|png|gif|jpeg)",
                                  f"{rget}"))
             if counts != 0:
-                news = int(findall(rf"{url}(\d*)/(?:[_\-]*[\w]+[_\-]+){{2,}}[\w]+[(\d+)%]*\.(?:jpg|png|gif|jpeg)",
+                news = int(findall(rf"{url}(\d*)/(?:[_\-]*\w+[_\-]+){{2,}}\w+[(\d+)%]*\.(?:jpg|png|gif|jpeg)",
                                    f"{rget}")[-1][:-3])
                 posts1 = findall(
-                    rf"{url}((?:{news - 1}\d{{3}})/(?:[_\-]*[\w]+[_\-]+){{2,}}[\w]+[(\d+)%]*\.(?:jpg|png|gif|jpeg))",
+                    rf"{url}((?:{news - 1}\d{{3}})/(?:[_\-]*\w+[_\-]+){{2,}}\w+[(\d+)%]*\.(?:jpg|png|gif|jpeg))",
                     f"{rget}")
                 posts2 = findall(
-                    rf"{url}((?:{news}\d{{3}})/(?:[_\-]*[\w]+[_\-]+){{2,}}[\w]+[(\d+)%]*\.(?:jpg|png|gif|jpeg))",
+                    rf"{url}((?:{news}\d{{3}})/(?:[_\-]*\w+[_\-]+){{2,}}\w+[(\d+)%]*\.(?:jpg|png|gif|jpeg))",
                     f"{rget}")
                 arts = DB.server.warts.find_one({"_id": "Арты"})
                 if int(news) > int(arts["ID"]):
@@ -91,7 +100,7 @@ class Arts(Cog):
         try:
             while True:
                 arts = DB.server.warts.find_one({"_id": "Арты"})
-                await self.BOT.get_channel(int(CHANNEL1)).send(f"https://4pda.to/forum/dl/post/{arts['Арты'][0]}")
+                await self.BOT.get_channel(int(ARTS)).send(f"https://4pda.to/forum/dl/post/{arts['Арты'][0]}")
                 DB.server.warts.update_one({"_id": "Арты"}, {"$pop": {"Арты": -1}})
                 await sleep(int(arts["Таймер"]) * 60)
         except Exception:
@@ -106,7 +115,7 @@ class Arts(Cog):
                     try:
                         request = loads(get(f"https://derpibooru.org/api/v1/json/search/images?page=1&per_page=50&"
                                             f"filter_id=2&q={tag}").text)["images"]
-                        await self.BOT.get_channel(int(CHANNEL2)).send(f"{request[randint(1, 50)]['view_url']}")
+                        await self.BOT.get_channel(int(DARTS)).send(f"{request[randint(1, 50)]['view_url']}")
                     except Exception:
                         pass
                 await sleep(int(dark["Таймер"]) * 60)
@@ -118,7 +127,7 @@ class Arts(Cog):
     @has_permissions(administrator=True)
     async def arts(self, ctx, trigger: str = None, timetag: str = None):
         try:
-            if ctx.channel.id == int(CHANNEL1) or ctx.channel.id == int(CHANNEL2):
+            if ctx.channel.id == int(ARTS) or ctx.channel.id == int(DARTS):
                 await ctx.message.delete(delay=1)
                 arts, dark = DB.server.warts.find_one({"_id": "Арты"}), DB.server.warts.find_one({"_id": "Темные Арты"})
                 e = None

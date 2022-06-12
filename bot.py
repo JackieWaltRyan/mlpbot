@@ -9,6 +9,7 @@ from traceback import format_exc
 from discord import Embed, Intents, ActivityType, Activity, Member, utils
 from discord.ext.commands import Bot, when_mentioned_or, has_permissions
 from discord_components import DiscordComponents
+from fuzzywuzzy.fuzz import token_sort_ratio
 from pymongo import MongoClient
 from pytz import timezone
 
@@ -16,7 +17,7 @@ BOT = Bot(command_prefix=when_mentioned_or("!"), help_command=None, intents=Inte
 
 DB = MongoClient("")
 
-SET = DB.server.settings.find_one({"_id": "Настройки"})
+SET, SPAM, BLOCK = DB.server.settings.find_one({"_id": "Настройки"}), {}, []
 
 
 def autores():
@@ -33,8 +34,11 @@ def autores():
 async def messages(name, value):
     try:
         for uid in [x for x in SET["Уведомления"].values()]:
-            await BOT.get_user(uid).send(embed=Embed(
-                title="Сообщение!", color=0x008000).add_field(name=name, value=value))
+            try:
+                await BOT.get_user(uid).send(embed=Embed(
+                    title="Сообщение!", color=0x008000).add_field(name=name, value=value))
+            except Exception:
+                pass
     except Exception:
         print(format_exc())
 
@@ -42,8 +46,11 @@ async def messages(name, value):
 async def alerts(name, value):
     try:
         for uid in [x for x in SET["Уведомления"].values()]:
-            await BOT.get_user(uid).send(embed=Embed(
-                title="Уведомление!", color=0xFFA500).add_field(name=name, value=value))
+            try:
+                await BOT.get_user(uid).send(embed=Embed(
+                    title="Уведомление!", color=0xFFA500).add_field(name=name, value=value))
+            except Exception:
+                pass
     except Exception:
         print(format_exc())
 
@@ -51,8 +58,11 @@ async def alerts(name, value):
 async def errors(name, value, reset=0):
     try:
         for uid in [x for x in SET["Уведомления"].values()]:
-            await BOT.get_user(uid).send(embed=Embed(
-                title="Ошибка!", color=0xFF0000).add_field(name=name, value=value))
+            try:
+                await BOT.get_user(uid).send(embed=Embed(
+                    title="Ошибка!", color=0xFF0000).add_field(name=name, value=value))
+            except Exception:
+                pass
         if reset == 1:
             execl(sys.executable, "python", "bot.py", *sys.argv[1:])
     except Exception:
@@ -69,7 +79,6 @@ async def on_connect():
 
 @BOT.event
 async def on_ready():
-    settings = DB.server.settings.find_one({"_id": "Настройки"})
     try:
         DiscordComponents(BOT)
     except Exception:
@@ -79,10 +88,10 @@ async def on_ready():
     except Exception:
         await errors("Сообщение запуска:", format_exc())
     try:
-        if BOT.user.id == settings["Принцесса Селестия"]["ID"]:
+        if BOT.user.id == SET["Принцесса Селестия"]["ID"]:
             await BOT.change_presence(activity=Activity(
                 type=ActivityType.watching, name="за Эквестрией..."))
-        if BOT.user.id == settings["Принцесса Луна"]["ID"]:
+        if BOT.user.id == SET["Принцесса Луна"]["ID"]:
             await BOT.change_presence(activity=Activity(
                 type=ActivityType.listening, name="тишину ночи..."))
     except Exception:
@@ -106,6 +115,8 @@ async def on_ready():
                                             "Сыграно игр в Тетрис": 0,
                                             "Лучший счет в Тетрис": 0})
             else:
+                if member.bot:
+                    DB.server.users.update_one({"_id": member.id}, {"$set": {"Бот": "Да"}})
                 delta = datetime.now() - user["Время последнего сообщения"]
                 if delta.days >= 7:
                     DB.server.users.update_one({"_id": member.id}, {"$set": {"Статус": "Неактивный"}})
@@ -136,7 +147,7 @@ async def on_ready():
     except Exception:
         await errors("Обновление ролей:", format_exc())
     try:
-        ok, error, cogs, modules = [], [], settings["Отключенные модули"], ""
+        ok, error, cogs, modules = [], [], SET["Отключенные модули"], ""
         for filename in listdir("./modules"):
             if filename.endswith(".py"):
                 cog = filename[:-3]
@@ -159,9 +170,9 @@ async def on_ready():
     except Exception:
         await errors("Загрузка модулей:", format_exc())
     try:
-        if BOT.user.id == settings["Принцесса Селестия"]["ID"]:
+        if BOT.user.id == SET["Принцесса Селестия"]["ID"]:
             await messages(BOT.user, "Снова \"Смотрит за Эквестрией...\"")
-        if BOT.user.id == settings["Принцесса Луна"]["ID"]:
+        if BOT.user.id == SET["Принцесса Луна"]["ID"]:
             await messages(BOT.user, "Снова \"Слушает тишину ночи...\"")
     except Exception:
         await errors("Сообщение готовности:", format_exc())
@@ -173,6 +184,34 @@ async def on_message(message):
         await BOT.process_commands(message)
     except Exception:
         await errors("process_commands:", format_exc())
+    try:
+        if message.author.id in BLOCK:
+            try:
+                await message.delete()
+            except Exception:
+                pass
+        else:
+            if message.author.id not in [SET["Принцесса Селестия"]["ID"], SET["Принцесса Луна"]["ID"]]:
+                if SPAM.get(message.author.id) is None:
+                    SPAM.update({message.author.id: [message.content]})
+                else:
+                    SPAM[message.author.id].insert(0, message.content)
+                if len(SPAM[message.author.id]) >= 3:
+                    if token_sort_ratio(SPAM[message.author.id][0], SPAM[message.author.id][1]) >= 90:
+                        if token_sort_ratio(SPAM[message.author.id][1], SPAM[message.author.id][2]) >= 90:
+                            try:
+                                await message.delete()
+                            except Exception:
+                                pass
+                            await message.author.send(embed=Embed(title="Уведомление!", color=0xFFA500).add_field(
+                                name="Блокировка за спам!", value="Вы были заблокированы на 60 секунд за спам!"))
+                            BLOCK.append(message.author.id)
+                            SPAM[message.author.id].clear()
+                            await alerts(message.author, "Заблокирован за спам!")
+                            await sleep(60)
+                            BLOCK.remove(message.author.id)
+    except Exception:
+        await errors("Антиспам:", format_exc())
     try:
         if message.content.startswith("!cogs"):
             if message.author.bot:
@@ -204,7 +243,8 @@ async def on_raw_reaction_add(payload):
                 like = int(reaction.count)
             if reaction.emoji == "👎":
                 dlike = int(reaction.count)
-        ratio = int(DB.server.users.count_documents({"Статус": "Активный"}) / 3)
+        bots = DB.server.users.count_documents({"Бот": "Да"})
+        ratio = int((DB.server.users.count_documents({"Статус": "Активный"}) - bots) / 3)
         if like - dlike >= ratio:
             await post.pin()
         if dlike - like >= ratio:
@@ -482,8 +522,8 @@ if __name__ == "__main__":
     try:
         etime = int(datetime.now(timezone('Europe/Moscow')).strftime("%H%M%S"))
         if 80000 <= etime < 200000:
-            BOT.run(DB.server.settings.find_one({"_id": "Настройки"})["Принцесса Селестия"]["Токен"])
+            BOT.run(SET["Принцесса Селестия"]["Токен"])
         if 200000 <= etime < 240000 or 0 <= etime < 80000:
-            BOT.run(DB.server.settings.find_one({"_id": "Настройки"})["Принцесса Луна"]["Токен"])
+            BOT.run(SET["Принцесса Луна"]["Токен"])
     except Exception:
         print(format_exc())

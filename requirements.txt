@@ -7,3 +7,4 @@ requests
 websockets
 PyNaCl
 beautifulsoup4
+fuzzywuzzy

@@ -11,6 +11,9 @@ from pymongo import ASCENDING
 
 from bot import DB, SET
 
+GHOST = int(DB.server.roles.find_one({"Название": "🦄 Духи"})["_id"])
+PONY = int(DB.server.roles.find_one({"Название": "🦄 Пони"})["_id"])
+NSFW = int(DB.server.roles.find_one({"Название": "🦄 18+"})["_id"])
 RASES = [role for role in DB.server.roles.find({"Категория": "Расы"}).sort("Название", ASCENDING)]
 MINIS = [minis for minis in DB.server.roles.find({"Категория": "Министерства"}).sort("Название", ASCENDING)]
 
@@ -26,24 +29,33 @@ class Posts(Cog):
     async def messages(self, name, value):
         try:
             for uid in [x for x in SET["Уведомления"].values()]:
-                await self.BOT.get_user(uid).send(embed=Embed(
-                    title="Сообщение!", color=0x008000).add_field(name=name, value=value))
+                try:
+                    await self.BOT.get_user(uid).send(embed=Embed(
+                        title="Сообщение!", color=0x008000).add_field(name=name, value=value))
+                except Exception:
+                    pass
         except Exception:
             print(format_exc())
 
     async def alerts(self, name, value):
         try:
             for uid in [x for x in SET["Уведомления"].values()]:
-                await self.BOT.get_user(uid).send(embed=Embed(
-                    title="Уведомление!", color=0xFFA500).add_field(name=name, value=value))
+                try:
+                    await self.BOT.get_user(uid).send(embed=Embed(
+                        title="Уведомление!", color=0xFFA500).add_field(name=name, value=value))
+                except Exception:
+                    pass
         except Exception:
             print(format_exc())
 
     async def errors(self, name, value, reset=0):
         try:
             for uid in [x for x in SET["Уведомления"].values()]:
-                await self.BOT.get_user(uid).send(embed=Embed(
-                    title="Ошибка!", color=0xFF0000).add_field(name=name, value=value))
+                try:
+                    await self.BOT.get_user(uid).send(embed=Embed(
+                        title="Ошибка!", color=0xFF0000).add_field(name=name, value=value))
+                except Exception:
+                    pass
             if reset == 1:
                 execl(sys.executable, "python", "bot.py", *sys.argv[1:])
         except Exception:
@@ -193,40 +205,35 @@ class Posts(Cog):
 
     @Cog.listener()
     async def on_button_click(self, interaction):
-        rid1 = DB.server.roles.find_one({"Название": "🦄 Духи"})["_id"]
-        rid2 = DB.server.roles.find_one({"Название": "🦄 Пони"})["_id"]
         try:
             if interaction.component.label == "Согласен!":
-                await interaction.send(f"Поздравляем! Вам выдана роль <@&{int(rid2)}>")
-                role1 = utils.get(interaction.user.guild.roles, id=int(rid2))
-                await interaction.user.add_roles(role1)
-                await interaction.user.remove_roles(
-                    utils.get(interaction.user.guild.roles, id=int(rid1)))
-                await self.alerts(interaction.user, f"Выдана роль: {role1}")
+                await interaction.send(f"Поздравляем! Вам выдана роль <@&{PONY}>")
+                pony = utils.get(interaction.user.guild.roles, id=PONY)
+                await interaction.user.add_roles(pony)
+                await interaction.user.remove_roles(utils.get(interaction.user.guild.roles, id=GHOST))
+                await self.alerts(interaction.user, f"Выдана роль: {pony}")
         except Exception:
             await self.errors(f"Кнопка {interaction.component.label}:", format_exc())
         try:
             if interaction.component.label == "Не согласен!":
-                await interaction.send(f"Поздравляем! Вам выдана роль <@&{int(rid1)}>")
-                role2 = utils.get(interaction.user.guild.roles, id=int(rid1))
-                await interaction.user.add_roles(role2)
-                await interaction.user.remove_roles(
-                    utils.get(interaction.user.guild.roles, id=int(rid2)))
-                await self.alerts(interaction.user, f"Выдана роль: {role2}")
+                await interaction.send(f"Поздравляем! Вам выдана роль <@&{GHOST}>")
+                ghost = utils.get(interaction.user.guild.roles, id=GHOST)
+                await interaction.user.add_roles(ghost)
+                await interaction.user.remove_roles(utils.get(interaction.user.guild.roles, id=PONY))
+                await self.alerts(interaction.user, f"Выдана роль: {ghost}")
         except Exception:
             await self.errors(f"Кнопка {interaction.component.label}:", format_exc())
-        rid3 = DB.server.roles.find_one({"Название": "🦄 18+"})["_id"]
         try:
             if interaction.component.label == "18+":
-                role3 = utils.get(interaction.user.guild.roles, id=int(rid3))
-                if utils.get(interaction.user.roles, id=int(rid3)) is None:
-                    await interaction.send(f"Поздравляем! Вам выдана роль <@&{int(rid3)}>")
-                    await interaction.user.add_roles(role3)
-                    await self.alerts(interaction.user, f"Выдана роль: {role3}")
+                nsfw = utils.get(interaction.user.guild.roles, id=NSFW)
+                if utils.get(interaction.user.roles, id=NSFW) is None:
+                    await interaction.send(f"Поздравляем! Вам выдана роль <@&{NSFW}>")
+                    await interaction.user.add_roles(nsfw)
+                    await self.alerts(interaction.user, f"Выдана роль: {nsfw}")
                 else:
-                    await interaction.send(f"Поздравляем! Вам убрана роль <@&{int(rid3)}>")
-                    await interaction.user.remove_roles(role3)
-                    await self.alerts(interaction.user, f"Удалена роль: {role3}")
+                    await interaction.send(f"Поздравляем! Вам убрана роль <@&{NSFW}>")
+                    await interaction.user.remove_roles(nsfw)
+                    await self.alerts(interaction.user, f"Удалена роль: {nsfw}")
         except Exception:
             await self.errors(f"Кнопка {interaction.component.label}:", format_exc())
 
@@ -238,7 +245,7 @@ class Posts(Cog):
                 for item1 in RASES:
                     try:
                         await interaction.user.remove_roles(utils.get(interaction.user.guild.roles,
-                                                                      id=int(item1['_id'])))
+                                                                      id=int(item1["_id"])))
                     except Exception:
                         pass
                 await self.alerts(interaction.user, f"Убраны все Расы")
@@ -247,7 +254,7 @@ class Posts(Cog):
                 for item2 in MINIS:
                     try:
                         await interaction.user.remove_roles(utils.get(interaction.user.guild.roles,
-                                                                      id=int(item2['_id'])))
+                                                                      id=int(item2["_id"])))
                     except Exception:
                         pass
                 await self.alerts(interaction.user, f"Убраны все Министерства")

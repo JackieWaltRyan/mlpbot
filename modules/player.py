@@ -17,36 +17,49 @@ from websockets import connect
 
 from bot import DB, SET
 
+VOICE = int(DB.server.channels.find_one({"Название": "🦄вечеринка голосовой"})["_id"])
+
 
 class Player(Cog):
     def __init__(self, bot):
         self.BOT = bot
         self.player.start()
+        self.online.start()
 
     def cog_unload(self):
         self.player.cancel()
+        self.online.cancel()
 
     async def messages(self, name, value):
         try:
             for uid in [x for x in SET["Уведомления"].values()]:
-                await self.BOT.get_user(uid).send(embed=Embed(
-                    title="Сообщение!", color=0x008000).add_field(name=name, value=value))
+                try:
+                    await self.BOT.get_user(uid).send(embed=Embed(
+                        title="Сообщение!", color=0x008000).add_field(name=name, value=value))
+                except Exception:
+                    pass
         except Exception:
             print(format_exc())
 
     async def alerts(self, name, value):
         try:
             for uid in [x for x in SET["Уведомления"].values()]:
-                await self.BOT.get_user(uid).send(embed=Embed(
-                    title="Уведомление!", color=0xFFA500).add_field(name=name, value=value))
+                try:
+                    await self.BOT.get_user(uid).send(embed=Embed(
+                        title="Уведомление!", color=0xFFA500).add_field(name=name, value=value))
+                except Exception:
+                    pass
         except Exception:
             print(format_exc())
 
     async def errors(self, name, value, reset=0):
         try:
             for uid in [x for x in SET["Уведомления"].values()]:
-                await self.BOT.get_user(uid).send(embed=Embed(
-                    title="Ошибка!", color=0xFF0000).add_field(name=name, value=value))
+                try:
+                    await self.BOT.get_user(uid).send(embed=Embed(
+                        title="Ошибка!", color=0xFF0000).add_field(name=name, value=value))
+                except Exception:
+                    pass
             if reset == 1:
                 execl(sys.executable, "python", "bot.py", *sys.argv[1:])
         except Exception:
@@ -72,16 +85,14 @@ class Player(Cog):
     @loop()
     async def player(self):
         try:
-            voice, trigger = DB.server.channels.find_one({"Название": "🦄вечеринка голосовой"})["_id"], 0
             while True:
-                channel, vc = DB.server.channels.find_one({"Название": "🦄вечеринка"}), None
                 try:
                     for x in self.BOT.voice_clients:
                         await x.disconnect()
                 except Exception:
                     pass
                 try:
-                    vc = await self.BOT.get_channel(int(voice)).connect()
+                    vc = await self.BOT.get_channel(VOICE).connect()
                     vc.play(FFmpegPCMAudio("https://everhoof.ru/320"))
                 except Exception:
                     pass
@@ -122,20 +133,11 @@ class Player(Cog):
                         if track["starts_at"] == track["ends_at"]:
                             try:
                                 content = loads(get("https://everhoof.ru/api/calendar/nogard").text)[0]
-                                starts_at = "".join(findall(r"\d+", content["starts_at"])[:6])
-                                ends_at = "".join(findall(r"\d+", content["ends_at"])[:6])
-                                dtime = datetime.now(timezone('Europe/Moscow')).strftime(
-                                    "%Y%m%d%H%M%S")
-                                if int(starts_at) <= int(dtime) <= int(ends_at):
+                                starts_at = int("".join(findall(r"\d+", content["starts_at"])[:6]))
+                                ends_at = int("".join(findall(r"\d+", content["ends_at"])[:6]))
+                                dtime = int(datetime.now(timezone('Europe/Moscow')).strftime("%Y%m%d%H%M%S"))
+                                if starts_at <= dtime <= ends_at:
                                     artist, title, delta = "В эфире", content["summary"], 60
-                                    if trigger == 0:
-                                        members = ""
-                                        users = [user["_id"] for user in DB.server.users.find({"Уведомления": "Да"})]
-                                        for user in users:
-                                            members += f"<@{user}>, "
-                                        await self.BOT.get_channel(int(channel["_id"])).send(
-                                            f"{members}Сейчас в прямом эфире \"{title}\"!")
-                                        trigger += 1
                             except Exception:
                                 delta = 60
                         else:
@@ -143,6 +145,7 @@ class Player(Cog):
                 except Exception:
                     pass
                 d = str(timedelta(seconds=duration))[2:]
+                channel = DB.server.channels.find_one({"Название": "🦄вечеринка"})
                 try:
                     post = await self.BOT.get_channel(int(channel["_id"])).fetch_message(int(channel["Плеер"]))
                     await post.delete()
@@ -163,6 +166,28 @@ class Player(Cog):
                 await sleep(int(delta))
         except Exception:
             await self.errors("Плеер:", format_exc())
+
+    @loop(minutes=1)
+    async def online(self):
+        try:
+            content = await connect("wss://everhoof.ru:443/ws")
+            track = loads(await content.recv())
+            if track["duration"] == 0:
+                if track["starts_at"] == track["ends_at"]:
+                    content = loads(get("https://everhoof.ru/api/calendar/nogard").text)[0]
+                    starts_at = int("".join(findall(r"\d+", content["starts_at"])[:6]))
+                    ends_at = int("".join(findall(r"\d+", content["ends_at"])[:6]))
+                    if starts_at <= int(datetime.now(timezone('Europe/Moscow')).strftime("%Y%m%d%H%M%S")) <= ends_at:
+                        if int(DB.server.settings.find_one({"_id": "Настройки"})["Триггер"]) < starts_at:
+                            members = ""
+                            for user in [user["_id"] for user in DB.server.users.find({"Уведомления": "Да"})]:
+                                members += f"<@{user}>, "
+                            await self.BOT.get_channel(
+                                int(DB.server.channels.find_one({"Название": "🦄вечеринка"})["_id"])).send(
+                                f"{members}\nСейчас в прямом эфире \"{content['summary']}\"!")
+                            DB.server.settings.update_one({"_id": "Настройки"}, {"$set": {"Триггер": ends_at}})
+        except Exception:
+            await self.errors("Онлайн:", format_exc())
 
     @Cog.listener()
     async def on_button_click(self, interaction):
